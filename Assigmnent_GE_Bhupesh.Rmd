@@ -1,0 +1,36 @@
+---
+title: "Macro_Trix_Assignment_GE_Bhupesh"
+author: "Bhupesh"
+date: "25 July 2016"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r cars}
+stockdf<-read.table("IntelNASDAQ.dat", header = TRUE)
+head(stockdf)
+
+summary(stockdf)
+stockdf["logIntel"]<-log(stockdf$IntelB1)-log(stockdf$Intel)
+head(stockdf)
+stockdf["logNASDAQ"]<-log(stockdf$NASDAQB1)-log(stockdf$NASDAQ)
+head(stockdf)
+
+model<- lm(stockdf$logIntel ~ stockdf$logNASDAQ)
+model
+summary(model)
+```
+## Including Plots
+
+
+
+```{r stockdf, echo=FALSE}
+plot(stockdf$logIntel, stockdf$logNASDAQ)
+
+```
+
