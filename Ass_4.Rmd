@@ -1,0 +1,275 @@
+---
+title: "Assignment_4"
+author: "Bhupesh"
+date: "14 September 2016"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Analysis of NelPlo data set
+
+The main aim of this exercis is to find a stationary series. Since we know the properties of a stationary series we try to make every series in form of a stationary series. To do this first we will check weather the series is a stationary series or not. To know weather a series is stationary or not we try to plot the series and look at the ACF of the series.
+
+```{r, warning=FALSE}
+library(tseries)
+library(knitr)
+data("NelPlo")
+## Create a random walk process
+set.seed(99)
+e<-rnorm(100)
+yt<-0
+for(t in 2:100){
+  yt[t]= yt[t-1]+e[t]
+  
+}
+yt<-ts(yt)
+## To CHeck the original series
+tbl<-data.frame()
+cnme<-colnames(NelPlo)
+a<-acf(yt, plot = FALSE)
+tbl[1,1]<-"Random Walk"
+tbl[1,2]<-100
+for(i in 1:length(a)){
+  tbl[1,i+2]<-a[i]
+}
+for(j in 1:length(cnme)){
+  b<-acf(NelPlo[,j], na.action = na.pass, plot = FALSE)
+  tbl[j+1,1]<-cnme[j]
+  tbl[j+1,2]<-length(which(!is.na(NelPlo[,j])))
+  for(i in 1:(length(b))){
+    tbl[j+1,i+2]<-b[i]
+  }
+}
+colnames(tbl)<-c("Series","T","r1","r2","r3","r4","r5","r6")
+kable(tbl, format="markdown", caption="Table 1: Sample autocorrelation of the series")
+```
+
+## Plotting the Series and ACF.
+
+```{r}
+
+for(j in 1:14){
+  plot.ts(NelPlo[,j], ylab=cnme[j] , main=paste("Fig 1.",j,"a: Actual series of", cnme[j]))
+  plot(acf(NelPlo[,j], na.action = na.pass, plot = FALSE), main=paste("Fig 1.",j,"b: Sample autocorrelation of", cnme[j]))
+}
+```
+
+As seen it is clear from the graph of the series as well as ACF the time series is not stationary in nature. A trend component is visible in all the timeseries (accept unemp). The sample autocorrelation presented in table 1 and typically starts from 0.96 at lag one and decay slowly with increasing lags (accept for unemployment). The high level of autocorrelation signify that the series has a trend or is non stationary. To further analyse the series we take the first difference of the series.
+
+# First difference:
+
+```{r, warning=FALSE}
+
+lag_NelPlo<-lag(NelPlo,-1)
+lag_yt<-lag(yt,-1)
+diff_NelPlo<-NelPlo-lag_NelPlo
+diff_yt<-yt-lag_yt
+tbl_firstdiff<-data.frame()
+tbl_firstdiff[1,1]<-"Time aggegrated Random Walk"
+tbl_firstdiff[1,2]<-100
+a<-acf(diff_yt, plot=FALSE)
+for(i in 1:length(a)){
+  tbl_firstdiff[1,i+2]<-a[i]
+}
+for(j in 1:length(cnme)){
+  b<-acf(diff_NelPlo[,j], na.action = na.pass, plot = FALSE)
+  tbl_firstdiff[j+1,1]<-cnme[j]
+  tbl_firstdiff[j+1,2]<-length(which(!is.na(diff_NelPlo[,j])))
+  for(i in 1:(length(b))){
+    tbl_firstdiff[j+1,i+2]<-b[i]
+  }
+}
+colnames(tbl_firstdiff)<-c("Series","T","r1","r2","r3","r4","r5","r6")
+kable(tbl_firstdiff, format="markdown", caption="Table 2: Sample autocorrelation of the first difference of series")
+
+```
+
+
+# Plotting the Series and ACF.
+
+```{r}
+for(j in 1:14){
+  plot(diff_NelPlo[,j], ylab=cnme[j], main=paste("Fig 2.",j,"a: First Difference of",cnme[j]))
+  plot(acf(diff_NelPlo[,j], na.action = na.pass, plot = FALSE), main=paste("Fig 2.",j,"b: Sample autocorrelation of first difference of", cnme[j]))
+}
+
+```
+
+The sample autocorrelation is (presented in table 2) positive and significant for lag one however not significiant for longer lags. This can be because the DGP for the time series is a Difference Stationary (DS) process. To verify this we need to perform a unit root test. Before that we can check if the series is just Trend Stationary (TS) or not. To do this we regress the series on time and plot the residuals.
+
+# Deviation from time trend
+
+```{r, warning=FALSE}
+residual_NelPlo<-data.frame()
+for(j in 1:length(cnme)){
+  t<-1:length(NelPlo[,j])
+  model<- lm(NelPlo[,j] ~ t)
+  r<-resid(model)
+  for(i in 1:(length(r))){
+    residual_NelPlo[i,j]<-r[i]
+  }
+}
+residual_NelPlo<-ts(residual_NelPlo, start = start(NelPlo), end = end(NelPlo))
+tbl_timetrend<-data.frame()
+res_yt<-resid(lm(yt ~ c(1:100)))
+a<-acf(res_yt, plot= FALSE)
+tbl_timetrend[1,1]<-"Detrended Random Walk"
+tbl_timetrend[1,2]<-100
+for(i in 1:length(a)){
+  tbl_timetrend[1,i+2]<-a[i]
+}
+
+for(j in 1:length(cnme)){
+  b<-acf(residual_NelPlo[,j], na.action = na.pass, plot = FALSE)
+  tbl_timetrend[j+1,1]<-cnme[j]
+  tbl_timetrend[j+1,2]<-length(which(!is.na(residual_NelPlo[,j])))
+  for(i in 1:(length(b))){
+    tbl_timetrend[j+1,i+2]<-b[i]
+  }
+} 
+colnames(tbl_timetrend)<-c("Series","T","r1","r2","r3","r4","r5","r6")
+kable(tbl_timetrend, format="markdown", caption="Table 3: Sample autocorrelation of the deviation from the time trend")
+
+```
+
+# Plotting the Series and ACF.
+
+```{r}
+for(j in 1:14){
+    plot(residual_NelPlo[,j], ylab=cnme[j], main=paste("Fig 3.",j,"a: Residual of", cnme[j]))
+  plot(acf(residual_NelPlo[,j], na.action = na.pass, plot = FALSE), main=paste("Fig 3.",j,"b: Sample autocorrelation of detrended series of", cnme[j]))
+}
+```
+
+The evidence against the series being TS is clear by looking at Table 3 and Fig. 3.2 which shows high ACF fo the detended series. It is similar to the original series(except unemp.) in many aspects. The ACF is similar to the detrended random walk process in first row. Therefore the series is a DS not a TS process. We need to further verify that the series has a unit root. 
+
+This can be done by the Dicky-Fuller Unit Root Tests.
+
+## Dicky-Fuller Unit Root Tests
+
+Since it is clear from the trend that a unit root is present in the time series. Therefore we need to test for the presence of unit root using the Dicky-Fuller Test. Since there is clear trend visible from the graph of the series, therefore we can only test for the Trend in the DF test. 
+
+# DF test with trend
+
+```{r}
+require(urca)
+for(i in 1: length(cnme)){
+  
+  adfy<-ur.df(na.omit(NelPlo[,i]), type="trend", lags=0, selectlags=c("AIC"))
+  sum<-summary(adfy) 
+  value<-sum@teststat[1,]
+  c.v<-sum@cval[,2]
+  df1<-data.frame(value,c.v)
+  rownames(df1)<-c("tau_t","phi2","phi3")
+  print(kable(df1, format="markdown", caption = paste("Summary of DF tests for", cnme[i])))
+  print(paste("Summary of DF tests for", cnme[i]))
+}
+
+```
+
+# Interpretation
+
+Let the estimated equation be:
+
+            diff(yt) = beta0 + beta1*t + gamma*y(t-1) + et
+
+          1. Ho: gamma=0              using tau_t
+          2. Ho: gamma=beta1=0        using phi2
+          3. Ho: gamma=beta1=beta0=0  using phi3
+
+1. By looking the tau_t values of all the variables we can safely conclude that we can accept the first null hypothesis (Ho: gamma=0) except for unemployment. Therefore we can say that the variable unemployment is not having a unit root where as other might have unit root.
+
+2. We can further establish the claim that there is no trend in all the series as the we fail to reject the second null hypothesis (Ho: gamma=beta1=0) using phi2.
+
+3. We can accept the third null hypothesis (Ho: gamma=beta1=beta0=0) using phi3 for the variables velocity (vel), interest rate (int.rate), stock prices (stock.prices) and per capita GNP (gnp.capita) whereas reject for others. This means that there is no drift with random walk for these 4 variables whereas other variable might have a random walk with drift.
+
+4. In order to establish our claim that the series are generated by a random walk with drift process we need to test the series further with drift for the remaining variable.
+
+# DF test with a drift
+
+```{r}
+
+for(i in 1: length(cnme)){
+  
+  adfy<-ur.df(na.omit(NelPlo[,i]), type="drift", lags=0, selectlags=c("AIC"))
+  sum<-summary(adfy) 
+  value<-sum@teststat[1,]
+  c.v<-sum@cval[,2]
+  df1<-data.frame(value,c.v)
+  rownames(df1)<-c("tau_t","phi1")
+  print(kable(df1, format="markdown", caption = paste("Summary of DF tests for", cnme[i])))
+  print(paste("Summary of DF tests for", cnme[i]))
+}
+
+```
+
+# Interpretation
+
+Let the estimated equation be:
+
+            diff(yt) = beta0  + gamma*y(t-1) + et
+
+          1. Ho: gamma=0              using tau_t
+          2. Ho: gamma=beta0=0        using phi1
+
+1. As established earlier we fail to reject the first null hypothesis only for unemployment where as accepted for all the other variables.
+
+2. However we fail to reject the second null hypothesis (Ho: gamma=beta0=0) for all the varable accept interest rates (int.rate), stock prices (stock.prices), per capita GNP (gnp.capita). This significies that these 3 variables might have a pure random walk whereas other variables have a random walk with drift.
+
+3. For the three varaible we can further test the presence of random walk without drift. 
+
+# DF test with none
+
+```{r, echo=FALSE}
+
+  adfy<-ur.df(na.omit(int.rate), type="none", lags=0, selectlags=c("AIC"))
+  sum<-summary(adfy) 
+  value<-sum@teststat[1,]
+  c.v<-sum@cval[,2]
+  df1<-data.frame(value,c.v)
+  rownames(df1)<-c("tau")
+  print(kable(df1, format="markdown", caption = paste("Summary of DF tests for", cnme[i])))
+  print("Summary of DF tests for int.rate")
+  
+  
+  adfy<-ur.df(na.omit(stock.prices), type="none", lags=0, selectlags=c("AIC"))
+  sum<-summary(adfy) 
+  value<-sum@teststat[1,]
+  c.v<-sum@cval[,2]
+  df1<-data.frame(value,c.v)
+  rownames(df1)<-c("tau")
+  print(kable(df1, format="markdown", caption = paste("Summary of DF tests for", cnme[i])))
+  print("Summary of DF tests for stock.prices")
+  
+  adfy<-ur.df(na.omit(gnp.capita), type="none", lags=0, selectlags=c("AIC"))
+  sum<-summary(adfy) 
+  value<-sum@teststat[1,]
+  c.v<-sum@cval[,2]
+  df1<-data.frame(value,c.v)
+  rownames(df1)<-c("tau")
+  print(kable(df1, format="markdown", caption = paste("Summary of DF tests for", cnme[i])))
+  print("Summary of DF tests for gnp.capita")
+
+
+```
+
+# Interpretation
+
+Let the estimated equation be:
+
+            diff(yt) = gamma*y(t-1) + et
+
+             1. Ho: gamma=0              using tau
+          
+1. For all the three variables we can safely say that we acccept the null hypothesis (Ho: gamma=0) so there is a pure random walk present in the processes.
+
+##Conclusion: 
+
+            1. Unemployment is not a Unit root process
+            2. There is no trend present in all the remaining variable.
+            3. Interest rate (int.rate), stock prices (stock.price) and per capita GNP (gnp.capita) are pure random walk processes
+            4. All the other remaining timeseries are random walk processes with a drift.
+            
