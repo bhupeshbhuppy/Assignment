@@ -1,0 +1,82 @@
+---
+title: "Assignment_3_Bhupesh_GE"
+author: "Bhupesh"
+date: "5 September 2016"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## THE MONTE CARLO METHOD
+
+We often want to know that the data series contains a trend and the best way to estimate the trend. Although the method of looking into the sample correlogram is a useful technique to detecting the possible presence a MA or and AR process, it is difficult for a Unit Root process. For example if the process is a AR(1) process y(t) = b * y(t???1)+ e(t) the correlogram of b=1 and b=0.9 would be very similar and hence very difficult to differenciate. Further estimating the above AR(1) process with OLS estimation would be very difficult as the variance for b=1 will be infinite in the equivalent MA(infinite) process.
+If suppose we want to test a unit root series the we can use Dickey-Fuller critical values to tests for unit roots. Instead of estimating the above AR(1) equation we can estimate the first difference of the given equation which is dy(t)= a*y(t-1)+ e(t) where dy(t)= y(t)-y(t-1). Then we can test for the a=0 using the test hypothesis.
+
+To simulate the process (Monte Carlo simulation)we write the following R function.
+
+Step 1: Generate random normal numbers of lenght T and assign it to e(t). So now we have a random shock which is normally distributed variable.
+
+Step 2: Then we generate the y(t) series as y(t)= y(t-1) + e(t) for 1<t<T and y(0)=E(e(t))=0
+
+Step 3: First we discard the first 50 values of the generated time series and then take the lag and calculate the first difference of data that is generated in the above step.
+
+Step 4: We then regress the value of the lagged difference and lagged value of the timeseries to estimate the cofficient of a and calculate the t-stat for the estimated cofficient a.
+
+Step 5: We repeat the first three steps 10000 time.
+
+Step 6: We plot the t-stat value and calculate the mean of the t-stat to test the hypothesis using
+
+                            H0: a=0
+                            H1: a>0 anda<0
+
+## THE R function
+
+
+```{r monteCarloSimulation}
+monteCarloSimulation<-function (T,a){
+  tStat<-0
+  #this loop will simulate the entire procee for 10000 times
+  for(n in 1:10000){
+    set.seed(n)
+    e<-rnorm(T+50) #generated T+50 random number so that we need to discard the first 50 variables
+    y<-0           # initialising y
+    #This for loop will generate the data
+    for (t in 2:(T+50)) {
+      y[t]=a*y[t-1]+e[t]
+    }
+    y<-ts(y[50:T+50]) #discarding first 50 values
+    y_lag<-lag(y)
+    lag_diff<-y-y_lag #calculate the first difference
+    model=lm(lag_diff ~ y_lag[1:(length(y_lag)-1)]) #estimate the value of a
+    tStat[n]<-summary(model)$coefficients[2,3] #returns the t-stats
+  }
+  return(tStat)
+}
+```
+
+
+# Calling the function and plotting the desity of the t-Stats obtained
+
+```{r pressure, echo=FALSE}
+
+tVal<-monteCarloSimulation(100, 1)
+plot(density(tVal))
+
+```
+
+The t-Values obtained followes normal distribution with mean as
+
+```{r}
+mean(tVal)
+```
+
+We can test the above null hypothes using the Dickey and Fuller test statistics for 100 observation are as follows:
+1. 90% of the estimated values of a are less than 2.58 standard errors from
+unity;
+2. 95% of the estimated values of a are less than 2.89 standard errors from
+unity;
+3. 99% of the estimated values of a are less than 3.51 standard errors from unity.
+
+Since the value of t-Val is less it can be accepted at even at the conventional level. Therefore we accept the null hypothesis.
