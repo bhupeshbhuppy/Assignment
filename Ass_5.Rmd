@@ -1,0 +1,281 @@
+---
+title: "Assignment_5"
+author: "Bhupesh"
+date: "17 October 2016"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+################################################################################
+# GARCH/ ARCH model
+################################################################################
+
+```{r, warning=FALSE}
+
+# load the required packages
+
+library(xts)
+library(PerformanceAnalytics)
+library(quantmod)
+library(rugarch)
+library(car)
+library(FinTS)
+library(forecast)
+
+Data<-read.csv("nyse.csv",sep=",",header=TRUE)
+temp<-as.Date(Data$ENTRY,format="%Y:%m:%d")
+head(temp)
+tail(temp)
+
+```
+
+# Extract adjusted closing prices
+
+```{r, warning=FALSE}
+nys <- Data[, "RATE", drop=F]
+nys<-xts(nys,temp) # define nys as xts object
+
+
+
+# Remove first NA observation
+nys.r <- nys[-1,]
+colnames(nys.r) <- "nyse returns"
+
+```
+
+# plot returns
+
+```{r}
+plot(nys.r)
+
+plot(density(nys.r), main="Actual Returns")
+
+```
+
+# plot returns with squared and absolute returns
+
+```{r, warning=FALSE}
+dataToPlot <- cbind(nys.r, nys.r^2)
+colnames(dataToPlot) <- c("Returns", "Returns^2")
+plot.zoo(dataToPlot, main="nyse Daily Returns", col="blue")
+
+
+par(mfrow=c(2,1))
+a1<-Acf(nys.r, main="nyse Returns")
+a2<-Acf(nys.r^2, main="nyse Returns^2")
+par(mfrow=c(1,1))
+
+par(mfrow=c(2,1))
+pacf(nys.r, main="nyse Returns")
+pacf(nys.r^2, main="nyse Returns^2")
+par(mfrow=c(1,1))
+
+table.Stats(nys.r)
+
+arima(nys.r, order=c(2,0,0)) 
+arima(nys.r, order=c(2,0,1))   
+arima(nys.r, order=c(1,0,0))   
+arima(nys.r, order=c(1,0,1))
+arima(nys.r, order=c(2,0,2))
+arima(nys.r, order=c(0,0,1))
+arima(nys.r, order=c(0,0,0))
+arima(nys.r, order=c(3,0,1))
+arima(nys.r, order=c(3,0,0))
+arima(nys.r, order=c(2,0,2))
+arima(nys.r, order=c(1,0,2))
+
+
+fit<-arima(nys.r, order=c(2,0,0)) 
+fit
+
+Ajb <- matrix(nrow=30, ncol=2)
+for(i in 1:30){
+  jb <- Box.test(fit$residuals^2, lag=i, type="Ljung-Box")
+  round(Ajb[i,1] <- jb$statistic,2)
+  round(Ajb[i,2] <- jb$p.value,2)
+}
+Ajb <- round(data.frame(Ajb),2)
+dimnames(Ajb) <- list(paste("Lag", 1:30, sep="."), c("stat.",
+                                                     "pval"))
+Ajb
+
+```
+
+# use ArchTest() function from FinTS package for ARCH LM test
+
+```{r, warning=FALSE}
+ArchTest(fit$residuals^2,lags=1)
+ArchTest(fit$residuals^2,lags=4)
+
+plot(fit$residuals^2)
+
+par(mfrow=c(2,1))
+acf(fit$residuals^2,lag.max = 100)
+pacf(fit$residuals^2,lag.max = 100)
+par(mfrow=c(1,1))
+
+```
+
+#GARCH(1,0) MODEL
+
+```{r, warning=FALSE}
+g10.s <- ugarchspec(variance.model = list(garchOrder=c(1,0)), 
+                    mean.model = list(armaOrder=c(2,0)))
+# Once specifined you may use ugarchfit() to estimate
+nyse.g10.fit1 <- ugarchfit(spec=g10.s, data=nys.r,
+                           solver.control=list(trace = 1))                          
+nyse.g10.fit1
+
+```
+
+#GARCH(0,1) MODEL
+
+```{r, warning=FALSE}
+g01.s <- ugarchspec(variance.model = list(garchOrder=c(0,1)), 
+                    mean.model = list(armaOrder=c(2,0)))
+# Once specifined you may use ugarchfit() to estimate
+nyse.g01.fit1 <- ugarchfit(spec=g01.s, data=nys.r,
+                           solver.control=list(trace = 1))                          
+nyse.g01.fit1
+
+```
+
+#GARCH(1,1) MODEL
+
+```{r, warning=FALSE}
+g11.s <- ugarchspec(variance.model = list(garchOrder=c(1,1)), 
+                    mean.model = list(armaOrder=c(2,0)))
+nyse.g11.fit1 <- ugarchfit(spec=g11.s, data=nys.r,
+                         solver.control=list(trace = 1))                          
+nyse.g11.fit1
+
+
+```
+
+#GARCH(1,1) Model with t distribution
+
+```{r, warning=FALSE}
+g11.t <- ugarchspec(variance.model = list(garchOrder=c(1,1)), 
+                    mean.model = list(armaOrder=c(2,0)),distribution.model = "std")
+nyse.g11.fit2 <- ugarchfit(spec=g11.t, data=nys.r,
+                          solver.control=list(trace = 1))                          
+nyse.g11.fit2
+
+```
+
+#IGARCH(1,1) Model
+
+```{r}
+i11.s <- ugarchspec(variance.model = list(model="iGARCH",garchOrder=c(1,1)), 
+                    mean.model = list(armaOrder=c(2,0)))
+nyse.i11.fit <- ugarchfit(spec=i11.s, data=nys.r,
+                          solver.control=list(trace = 1))  
+nyse.i11.fit
+
+```
+
+# Residuals
+
+```{r, warning=FALSE}
+#residuals:ge(t)
+res0 <- residuals(nyse.g11.fit1)
+head(res0)
+# standard residuals: gv(t)
+sres0 <- residuals(nyse.g11.fit1, standardize =TRUE)
+head(sres0)
+
+#residuals: ie(t)
+res1 <- residuals(nyse.i11.fit)
+head(res1)
+# standard residuals: iv(t)
+sres1 <- residuals(nyse.i11.fit, standardize =TRUE)
+
+head(sres1)
+```
+
+# Residual plots
+
+```{r, warning=FALSE}
+resToPlot <-cbind(res1,sres1,res0,sres0)
+colnames(resToPlot) <- c("ie(t)", "iv(t)","ge(t)","gv(t)")
+plot.zoo(resToPlot,col="blue")
+
+Box.test(sres1,lag=5, type=c("Ljung-Box"),fitdf=0)
+Box.test(sres1,lag=10, type=c("Ljung-Box"),fitdf=0)
+Box.test(sres1,lag=15, type=c("Ljung-Box"),fitdf=0)
+
+Box.test(sres0,lag=5, type=c("Ljung-Box"),fitdf=0)
+Box.test(sres0,lag=10, type=c("Ljung-Box"),fitdf=0)
+Box.test(sres0,lag=15, type=c("Ljung-Box"),fitdf=0)
+
+# plot autocorrelations of standardised residuals for GARCH(1,1)
+par(mfrow=c(2,1))
+Acf(sres0,lag.max =10, main="std. residuals") 
+Acf(sres0^2,lag.max =10, main="std. residuals^2")
+par(mfrow=c(1,1)) 
+
+par(mfrow=c(2,1))
+Pacf(sres0,lag.max =10, main="std. residuals")
+Pacf(sres0^2,lag.max =10, main="std. residuals^2")
+par(mfrow=c(1,1))
+
+# plot autocorrelations of standardised residuals for IGARCH(1,1)
+par(mfrow=c(2,1))
+Acf(sres1,lag.max =10, main="std. residuals") 
+Acf(sres1^2,lag.max =10, main="std. residuals^2")
+par(mfrow=c(1,1)) 
+
+par(mfrow=c(2,1))
+Pacf(sres1,lag.max =10, main="std. residuals")
+Pacf(sres1^2,lag.max =10, main="std. residuals^2")
+par(mfrow=c(1,1))
+
+```
+ 
+ In addition the sign bias test show evidence for leverage effect. hence an EGARCH 
+ or TARCH may give better results. 
+
+```{r, warning=FALSE}
+tgarch.spec = ugarchspec(variance.model=list(model="fGARCH",garchOrder=c(1,1),submodel="TGARCH"),
+                          mean.model=list(armaOrder=c(2,0)))
+nyse.tgarch.fit = ugarchfit(tgarch.spec, nys.r)
+nyse.tgarch.fit
+```
+
+# Nelson's egarch model
+
+```{r, warning=FALSE}
+egarch1.spec = ugarchspec(variance.model=list(model="eGARCH",
+                                               garchOrder=c(1,1)),
+                           mean.model=list(armaOrder=c(2,0)))
+nyse.egarch1.fit = ugarchfit(egarch1.spec, nys.r)
+nyse.egarch1.fit
+```
+
+# GJR garch model
+
+```{r, warning=FALSE}
+gjrgarch.spec = ugarchspec(variance.model=list(model="gjrGARCH",
+                                                 garchOrder=c(1,1)),
+                             mean.model=list(armaOrder=c(2,0)))
+nyse.gjrgarch.fit = ugarchfit(gjrgarch.spec, nys.r)
+nyse.gjrgarch.fit
+```
+
+# Compare information criteria and choose the best among all
+
+```{r, warning=FALSE}
+model.list = list(garch = nyse.g11.fit1,
+                  egarch = nyse.egarch1.fit,
+                  igarch=nyse.i11.fit,
+                  gjrgarch = nyse.gjrgarch.fit)
+info.mat = sapply(model.list, infocriteria)
+rownames(info.mat) = rownames(infocriteria(nyse.g11.fit1))
+info.mat
+
+
+```
+
