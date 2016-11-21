@@ -1,0 +1,72 @@
+---
+title: "Assignment_2_ARMA"
+author: "Bhupesh"
+date: "19 August 2016"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Fitting the ARMA model to the given data set
+
+#Step 1: Import the data set
+
+```{r}
+inflation1 <- read.csv("~/Applied_Trix/inflation1.csv")
+head(inflation1)
+```
+
+#Step 2: Convert the data set to a time series
+
+```{r}
+ts_inflation_f1<-ts(inflation1$Inf.)
+
+```
+
+#Step 3: Import the file to provided to draw graphs and load the required library
+
+```{r}
+options(digits=4, width=70)
+source("E:/Study/Semester 3/macro & fin ecotrix/graphfun.R")
+library(ggplot2)
+library(grid)
+library(gridExtra)
+```
+
+#Step 4: Plot the time series
+
+```{r}
+
+ts.graph1(ts_inflation_f1)
+
+```
+
+#Step 5: Plot sample ACF and sample PACF using the function
+
+```{r}
+
+ts.graph4(ts_inflation_f1,30)
+
+```
+
+It is clear from smaple ACF that there is a significiant lag of 2 periods so this can either be a AR(2) process or an ARMA(2,1) process. Let us estimate the ACI for these process
+
+# Step 6: Estimate the cofficient
+
+```{r}
+#for AR(2) process
+arima(ts_inflation_f1, order = c(2,0,0))
+
+#for ARMA(2,1)
+arima(ts_inflation_f1, order = c(2,0,1))
+
+
+```
+
+# Step 7: Diagnostic
+
+Since ACI for ARMA(2,1) is less than AR(2) process therefore ARMA(2,1) is a better fit model for the given data.
+
+The cofficient are for y(t-1)=1.684, for y(t-2)=-0.76, for E(t-1)=-0.844 and constant = 5.337
